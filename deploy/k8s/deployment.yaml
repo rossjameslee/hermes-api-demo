@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hermes-api
+  labels:
+    app: hermes-api
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: hermes-api
+  template:
+    metadata:
+      labels:
+        app: hermes-api
+    spec:
+      containers:
+        - name: hermes-api
+          image: ghcr.io/your-org/hermes-api:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+          env:
+            - name: PORT
+              value: "8000"
+            - name: REQUEST_MAX_BYTES
+              value: "262144"
+            - name: MAX_IMAGES
+              value: "6"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 3
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8000
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+

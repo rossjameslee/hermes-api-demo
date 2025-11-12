@@ -1,0 +1,5 @@
+{
+  "images_source": "https://example.com/a.jpg, https://example.com/b.jpg",
+  "use_signed_urls": true
+}
+

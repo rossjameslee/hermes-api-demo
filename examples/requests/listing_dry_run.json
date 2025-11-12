@@ -1,0 +1,14 @@
+{
+  "images_source": [
+    "https://example.com/image-1.jpg",
+    "https://example.com/image-2.jpg"
+  ],
+  "sku": "demo-sku-001",
+  "merchant_location_key": "loc-1",
+  "fulfillment_policy_id": "fulfill-123",
+  "payment_policy_id": "payment-123",
+  "return_policy_id": "return-123",
+  "marketplace": "EBAY_US",
+  "dry_run": true
+}
+

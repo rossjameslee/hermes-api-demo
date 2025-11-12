@@ -1,0 +1,268 @@
+openapi: 3.0.4
+info:
+  title: Hermes API (Rust Demo)
+  version: 0.1.0
+servers:
+  - url: http://localhost:8000
+paths:
+  /health:
+    get:
+      summary: Readiness check
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                  service:
+                    type: string
+  /listings:
+    post:
+      summary: Run images → eBay pipeline
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ListingRequest"
+      responses:
+        "200":
+          description: Listing response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListingResponse"
+  /listings/continue:
+    post:
+      summary: Resume pipeline honoring overrides
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContinueRequest"
+      responses:
+        "200":
+          description: Listing response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ListingResponse"
+  /stages/resolve_images:
+    post:
+      summary: Normalize and dedupe image URLs
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                images_source:
+                  oneOf:
+                    - type: string
+                    - type: array
+                      items:
+                        type: string
+                use_signed_urls:
+                  type: boolean
+      responses:
+        "200":
+          description: Resolved images
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  images:
+                    type: array
+                    items:
+                      type: string
+  /stages/select_category:
+    post:
+      summary: Deterministic category selection
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                images:
+                  type: array
+                  items:
+                    type: string
+                sku:
+                  type: string
+                merchant_location_key:
+                  type: string
+                fulfillment_policy_id:
+                  type: string
+                payment_policy_id:
+                  type: string
+                return_policy_id:
+                  type: string
+                marketplace:
+                  type: string
+      responses:
+        "200":
+          description: Selection + alternatives
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  selection:
+                    type: object
+                  alternatives:
+                    type: array
+                    items:
+                      type: object
+  /stages/extract_product:
+    post:
+      summary: Images → HSUF Product (LLM with fallback)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                sku:
+                  type: string
+                images:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Product JSON
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  product:
+                    type: object
+  /stages/description:
+    post:
+      summary: Title + bullets → description (LLM with fallback)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                title:
+                  type: string
+                bullets:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "200":
+          description: Description
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  description:
+                    type: string
+                  used_fallback:
+                    type: boolean
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+  schemas:
+    ListingRequest:
+      type: object
+      properties:
+        images_source:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+        sku:
+          type: string
+        merchant_location_key:
+          type: string
+        fulfillment_policy_id:
+          type: string
+        payment_policy_id:
+          type: string
+        return_policy_id:
+          type: string
+        marketplace:
+          type: string
+        use_signed_urls:
+          type: boolean
+        dry_run:
+          type: boolean
+        overrides:
+          $ref: "#/components/schemas/Overrides"
+    ContinueRequest:
+      allOf:
+        - $ref: "#/components/schemas/ListingRequest"
+      required:
+        [
+          sku,
+          merchant_location_key,
+          fulfillment_policy_id,
+          payment_policy_id,
+          return_policy_id,
+        ]
+    Overrides:
+      type: object
+      properties:
+        resolved_images:
+          type: array
+          items:
+            type: string
+        category:
+          type: object
+          properties:
+            id: { type: string }
+            tree_id: { type: string }
+            label: { type: string }
+            confidence: { type: number }
+            rationale: { type: string }
+        product:
+          type: object
+    ListingResponse:
+      type: object
+      properties:
+        listing_id:
+          type: string
+        stages:
+          type: array
+          items:
+            $ref: "#/components/schemas/StageReport"
+    StageReport:
+      type: object
+      properties:
+        name: { type: string }
+        elapsed_ms: { type: integer }
+        timestamp: { type: string }
+        output: { type: object }
